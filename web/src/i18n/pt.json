@@ -1,0 +1,14 @@
+{
+  "title": "Game Vault",
+  "add_game": "Adicionar jogo",
+  "title_label": "Título",
+  "platform_label": "Plataforma",
+  "board_game": "Jogo de tabuleiro",
+  "release_date": "Data de lançamento",
+  "save": "Guardar",
+  "search_providers": "Pesquisar nas fontes",
+  "upcoming": "Próximos lançamentos",
+  "delete": "Apagar",
+  "lang_en": "Inglês",
+  "lang_pt": "Português"
+}
