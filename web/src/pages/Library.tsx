@@ -1,67 +1,85 @@
-
-import React, { useEffect, useMemo, useState } from "react";
-import Layout from "../components/Layout";
-import FilterPanel from "../components/FilterPanel";
-import { listGames, type Game, type GameFilters } from "../features/games/api";
-
-const ALL_PLATFORMS = ["PS5","PS4","Xbox Series","Xbox One","Switch","PC","Steam","GOG","Epic","Web","Mobile"];
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { listGamesPagedByPage, type Game } from "../features/games/api";
 
 export default function Library(){
-  const [filters,setFilters] = useState<GameFilters>({ sort:"added" });
-  const [drawer,setDrawer] = useState(false);
-  const [page,setPage] = useState(1);
-  const [items,setItems] = useState<Game[]>([]);
-  const [total,setTotal] = useState(0);
-  const pageSize = 30;
-  const hasMore = items.length < total;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = useMemo(()=>parseInt(searchParams.get("page")||"0",10), [searchParams]);
+  const limit = useMemo(()=>parseInt(searchParams.get("limit")||"30",10), [searchParams]);
+  const [items, setItems] = useState<Game[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   useEffect(()=>{
-    let ignore=false;
-    (async ()=>{
-      const pageResp = await listGames(0,pageSize,filters);
-      if(ignore) return;
-      setItems(pageResp.items);
-      setTotal(pageResp.total);
-      setPage(1);
-    })();
-    return ()=>{ ignore=true; };
-  },[filters.sort, filters.platform, filters.status, filters.q]);
+    let cancelled=false;
+    setLoading(true);
+    const filters = {
+      q: searchParams.get("q") || "",
+      platform: searchParams.get("platform") || "",
+      status: searchParams.get("status") || ""
+    };
+    listGamesPagedByPage(page, limit, filters)
+      .then(p => {
+        if (cancelled) return;
+        setItems(p.items || []);
+        setTotal(p.total || 0);
+      })
+      .catch(()=>{
+        if (!cancelled) { setItems([]); setTotal(0); }
+      })
+      .finally(()=>{ if (!cancelled) setLoading(false); });
+    return ()=>{ cancelled=true; };
+  }, [page, limit, searchParams]);
 
-  async function loadMore(){
-    const next = await listGames(items.length, pageSize, filters);
-    setItems(prev=>[...prev, ...next.items]);
-    setTotal(next.total);
-    setPage(p=>p+1);
-  }
+  const hasPrev = page > 0;
+  const hasNext = (page + 1) * limit < total;
 
   return (
-    <Layout>
-      <div className="toolbar">
-        <button className="btn" onClick={()=>setDrawer(true)}>Filtros</button>
-        <div className="spacer"/>
-        <div className="meta">{items.length} / {total}</div>
+    <div className="page library">
+      <div className="toolbar" style={{display:"flex", gap:8, alignItems:"center", justifyContent:"space-between"}}>
+        <div style={{display:"flex", gap:8}}>
+          <Link to="/add" className="btn">Add New</Link>
+          <button className="btn" onClick={()=> setSearchParams(prev => {
+            const n = new URLSearchParams(prev);
+            n.set("filters","open");
+            return n;
+          })}>Filters</button>
+        </div>
+        <div className="search">
+          <input
+            placeholder="Pesquisar…"
+            defaultValue={searchParams.get("q")||""}
+            onKeyDown={e=>{
+              if(e.key==="Enter"){
+                const v=(e.target as HTMLInputElement).value;
+                setSearchParams(prev=>{ const n=new URLSearchParams(prev); if(v) n.set("q",v); else n.delete("q"); n.set("page","0"); return n; });
+              }
+            }}
+          />
+        </div>
       </div>
 
-      {items.length===0 ? (
-        <div className="empty">Sem jogos para mostrar.</div>
-      ):(
-        <div className="grid">
-          {items.map(g=>(
-            <a key={g.id} className="card" href={`/game/${g.id}`}>
-              <div className="cover" style={{backgroundImage:`url(${g.cover_url||''})`}}/>
-              <div className="title">{g.title}</div>
-              <div className="sub">{g.platform||""}</div>
-            </a>
-          ))}
-        </div>
+      {loading ? <p>A carregar…</p> : (
+        items.length===0 ? <p>Sem jogos.</p> : (
+          <div className="grid" style={{display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))", gap:16}}>
+            {items.map(g => (
+              <Link key={g.id} to={`/game/${g.id}`} className="card" style={{textDecoration:"none", color:"inherit", background:"#111", borderRadius:12, overflow:"hidden"}}>
+                <div className="cover" style={{aspectRatio:"3/4", backgroundSize:"cover", backgroundPosition:"center", backgroundImage:`url(${g.cover_url||""})`}} />
+                <div className="meta" style={{padding:"8px 10px"}}>
+                  <div className="title" style={{fontWeight:600, whiteSpace:"nowrap", textOverflow:"ellipsis", overflow:"hidden"}}>{g.title}</div>
+                  <div className="sub" style={{opacity:.7, fontSize:12}}>{g.platform||""}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )
       )}
 
-      <div className="pager">
-        <div className="grow"/>
-        {hasMore && <button className="btn" onClick={loadMore}>Carregar mais</button>}
+      <div className="pager" style={{display:"flex", justifyContent:"flex-end", alignItems:"center", gap:10, padding:"16px 0"}}>
+        <button disabled={!hasPrev} onClick={()=> setSearchParams(sp=>{ const n=new URLSearchParams(sp); n.set("page", String(Math.max(0, page-1))); return n;})}>Anterior</button>
+        <span style={{opacity:.75}}>{items.length ? `${page*limit+1}-${page*limit+items.length} de ${total}` : `0 de ${total}`}</span>
+        <button disabled={!hasNext} onClick={()=> setSearchParams(sp=>{ const n=new URLSearchParams(sp); n.set("page", String(page+1)); return n;})}>Próxima</button>
       </div>
-
-      <FilterPanel open={drawer} onClose={()=>setDrawer(false)} filters={filters} onChange={setFilters} platforms={ALL_PLATFORMS}/>
-    </Layout>
+    </div>
   );
 }

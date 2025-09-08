@@ -1,25 +1,22 @@
-
 import axios from "axios";
+export const API_BASE = (import.meta as any).env?.VITE_API_BASE || "http://127.0.0.1:8000";
+export const api = axios.create({ baseURL: API_BASE, withCredentials: false });
 
-const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-
-export const api = axios.create({
-  baseURL: API_URL,
-  timeout: 15000,
-});
-
-export async function get<T>(url: string, params?: any): Promise<T> {
-  const res = await api.get(url, { params });
-  return res.data as T;
+export async function get<T=any>(url: string): Promise<T> {
+  const r = await api.get(url);
+  return r.data as T;
 }
-export async function post<T>(url: string, data?: any): Promise<T> {
-  const res = await api.post(url, data);
-  return res.data as T;
+export async function post<T=any>(url: string, data: any): Promise<T> {
+  const r = await api.post(url, data);
+  return r.data as T;
 }
-export async function del<T>(url: string): Promise<T> {
-  const res = await api.delete(url);
-  return res.data as T;
+export async function put<T=any>(url: string, data: any): Promise<T> {
+  const r = await api.put(url, data);
+  return r.data as T;
 }
-
-export { get as apiGet, post as apiPost, del as apiDel };
-export default api;
+export async function del<T=any>(url: string): Promise<T> {
+  const r = await api.delete(url);
+  return r.data as T;
+}
+// Back-compat alias some screens expect
+export const apiGet = get;

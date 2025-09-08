@@ -1,13 +1,21 @@
-# Corrige literais booleanos Python-Style para JavaScript na Library.tsx
-param(
-  [string]$File = "web/src/pages/Library.tsx"
+
+Param(
+  [string]$Root = "."
 )
-if (-not (Test-Path $File)) {
-  Write-Error "Não encontrei $File. Ajusta o caminho e volta a correr."
-  exit 1
+$ErrorActionPreference = "Stop"
+$web = Join-Path $Root "web"
+if(!(Test-Path $web)){ Write-Host "Pasta 'web' não encontrada em $Root" -ForegroundColor Red; exit 1 }
+$files = Get-ChildItem -Path $web -Include *.ts,*.tsx -Recurse
+foreach($f in $files){
+  $txt = Get-Content -Path $f.FullName -Raw
+  $new = $txt `
+    -replace '\bFalse\b','false' `
+    -replace '\bTrue\b','true' `
+    -replace '([^A-Za-z_])or([^A-Za-z_])','$1||$2' `
+    -replace '([^A-Za-z_])and([^A-Za-z_])','$1&&$2'
+  if($new -ne $txt){
+    Set-Content -Path $f.FullName -Value $new -NoNewline
+    Write-Host "Patched $($f.FullName)" -ForegroundColor Green
+  }
 }
-$txt = Get-Content $File -Raw
-$txt = $txt -replace "\bFalse\b","false"
-$txt = $txt -replace "\bTrue\b","true"
-Set-Content $File $txt -Encoding UTF8
-Write-Host "✔ Substituições aplicadas em $File"
+Write-Host "Fix concluído." -ForegroundColor Cyan
