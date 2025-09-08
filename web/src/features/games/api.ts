@@ -1,128 +1,90 @@
-/**
- * API de jogos: exports estáveis para o resto da app.
- * Mantém nomes esperados pelos componentes (searchProviders, getGame, createGame, etc.).
- */
+// web/src/features/games/api.ts
+import { get, post, del as apiDel, api } from "../../lib/http";
 
-import { get, post, put, del } from "../../lib/http";
-
-// Tipos leves para não quebrar TS (evita “property X does not exist …”)
-export type ID = string | number;
+export type GameFilters = {
+  q?: string;
+  platform?: string;
+  status?: string;
+  sort?: string; // "name" | "added" | "console"
+};
 
 export type Game = {
-  id?: ID;
-  slug?: string;
+  id: number;
   title: string;
-  platform?: string;
-  cover_url?: string;
-  release_date?: string | null;
-  status?: "owned" | "wishlist" | "played" | string;
-  [key: string]: any;
+  platform?: string | null;
+  cover_url?: string | null;
+  added_at?: string;
+  status?: string;
+  slug?: string;
 };
 
-export type Paged<T> = {
-  items: T[];
-  total: number;
-  offset: number;
-  limit: number;
+export type Paged<T> = { items: T[]; total: number; offset: number; limit: number };
+
+// ---- Helpers --------------------------------------------------------------
+function buildQuery(params: Record<string, any>) {
+  const q = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") q.set(k, String(v));
+  });
+  return q.toString();
+}
+
+// Some backends have /games/paged; others only /games.
+// We try /games/paged first; if 404, fall back to /games and slice locally.
+export async function listGamesPaged(
+  offset = 0,
+  limit = 30,
+  filters: GameFilters = {}
+): Promise<Paged<Game>> {
+  const qs = buildQuery({ offset, limit, ...filters });
+  // Try paged endpoint
+  try {
+    const page = await get<Paged<Game>>(`/games/paged?${qs}`);
+    if (page && Array.isArray(page.items)) return page;
+  } catch (e: any) {
+    // If 404 or any structural issue, try fallback
+  }
+  // Fallback: /games returns an array
+  const all = await get<Game[]>(`/games?${buildQuery(filters)}`);
+  const items = all.slice(offset, offset + limit);
+  return { items, total: all.length, offset, limit };
+}
+
+// Sometimes components asked for listGamesPagedByPage(page)
+export const listGamesPagedByPage = async (
+  page: number,
+  pageSize = 30,
+  filters: GameFilters = {}
+) => {
+  const offset = Math.max(0, page) * pageSize;
+  return listGamesPaged(offset, pageSize, filters);
 };
+
+export async function getGame(id: number | string): Promise<Game> {
+  return get<Game>(`/games/${id}`);
+}
+
+export async function createGame(payload: Partial<Game>) {
+  return post<Game>("/games", payload);
+}
+
+export async function deleteGame(id: number | string) {
+  return apiDel(`/games/${id}`);
+}
 
 export type ProviderItem = {
-  id: string;
-  slug?: string;
   title: string;
-  cover_url?: string;
-  release_date?: string | null;
-  platforms?: string[];
-};
-
-// ----------------- LISTAGEM / PAGINAÇÃO -----------------
-
-/**
- * Backend pode expor /games/paged ou /games com offset/limit.
- * Aqui tentamos /games/paged e, se 404, caímos para /games.
- */
-export async function listGamesPaged(offset = 0, limit = 30, filters?: Record<string, any>): Promise<Paged<Game>> {
-  // serializa filtros simples
-  const params: Record<string, any> = { offset, limit, ...(filters || {}) };
-
-  try {
-    return await get<Paged<Game>>("/games/paged", params); // caminho “novo”
-  } catch (e: any) {
-    // fallback p/ caminho “antigo”
-    return await get<Paged<Game>>("/games", params);
-  }
-}
-
-// ----------------- CRUD -----------------
-
-export async function getGame(id: ID): Promise<Game> {
-  return await get<Game>(`/games/${id}`);
-}
-
-export async function createGame(payload: Partial<Game>): Promise<Game> {
-  return await post<Game>("/games", payload);
-}
-
-export async function updateGame(id: ID, payload: Partial<Game>): Promise<Game> {
-  return await put<Game>(`/games/${id}`, payload);
-}
-
-export async function deleteGame(id: ID): Promise<{ ok: boolean } | any> {
-  return await del(`/games/${id}`);
-}
-
-// ----------------- PROVEDORES / RAWG -----------------
-
-/**
- * Pesquisa em provedores (ex.: RAWG) via backend.
- * Correspondência com a rota FastAPI /providers/search?q=...&kind=...
- */
-export async function searchProviders(query: string, kind?: "video" | "board" | "hardware"): Promise<ProviderItem[]> {
-  if (!query?.trim()) return [];
-  const params: Record<string, any> = { q: query.trim() };
-  if (kind) params.kind = kind;
-  return await get<ProviderItem[]>(`/providers/search`, params);
-}
-
-// ----------------- LANÇAMENTOS / CALENDÁRIO -----------------
-
-export type ReleaseItem = {
-  id?: ID;
-  title: string;
-  release_date?: string | null;
   platform?: string;
+  release_date?: string;
   cover_url?: string;
-  [k: string]: any;
+  provider?: string;
+  external_id?: string | number;
 };
 
-export async function upcomingReleases(days = 60, limit = 20): Promise<ReleaseItem[]> {
-  // alguns backends expõem /releases/upcoming; se não existir, devolvemos []
-  try {
-    return await get<ReleaseItem[]>(`/releases/upcoming`, { days, limit });
-  } catch {
-    return [];
-  }
+export async function searchProviders(q: string): Promise<ProviderItem[]> {
+  if (!q || q.trim().length < 2) return [];
+  return get<ProviderItem[]>(`/providers/search?${buildQuery({ q })}`);
 }
 
-// ----------------- DEFINIÇÕES -----------------
-
-export async function getSettings(): Promise<any> {
-  return await get<any>("/settings");
-}
-
-export async function saveSettings(data: any): Promise<any> {
-  return await put<any>("/settings", data);
-}
-
-// Export default opcional (se algum import default depender disto)
-export default {
-  listGamesPaged,
-  getGame,
-  createGame,
-  updateGame,
-  deleteGame,
-  searchProviders,
-  upcomingReleases,
-  getSettings,
-  saveSettings
-};
+// Keep legacy names for compatibility if some components import these:
+export { searchProviders as providerSearch };
