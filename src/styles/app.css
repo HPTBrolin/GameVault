@@ -1,0 +1,8 @@
+/* src/styles/app.css */
+.app-shell{min-height:100vh;display:flex;flex-direction:column;background:#0f1720;color:#e5e7eb}
+.topbar{position:sticky;top:0;z-index:10;background:#0b3b2e;padding:10px 16px;border-bottom:1px solid #143e35}
+.nav{display:flex;gap:12px;align-items:center}
+.nav-link{padding:6px 10px;border-radius:8px;background:transparent;color:#cfe9df;text-decoration:none;border:1px solid transparent}
+.nav-link:hover{background:#115e48;color:#fff;border-color:#1b7a61}
+.nav-link.active{background:linear-gradient(90deg,#1fb2a6,#60a5fa);color:#081319}
+.content{flex:1;padding:16px}

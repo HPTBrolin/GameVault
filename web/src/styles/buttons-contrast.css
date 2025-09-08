@@ -1,0 +1,10 @@
+
+/* Ensure button text contrast */
+.btn{color:#E5E7EB; border:1px solid rgba(148,163,184,.18); background:#0f172a; padding:.55rem .8rem; border-radius:10px; display:inline-flex; align-items:center; gap:.45rem; font-weight:600}
+.btn.primary{background:#2563eb; color:white; border-color:#1d4ed8}
+.btn:disabled{opacity:.65; cursor:not-allowed}
+
+.subbar .right .muted{opacity:.85}
+
+.drawer .btn{background:#0f172a}
+.drawer .btn.primary{background:#2563eb}

@@ -1,0 +1,9 @@
+
+/* Modern CSS reset (small) */
+*{box-sizing:border-box}*::before,*::after{box-sizing:inherit}
+html,body,#root{height:100%}
+body{margin:0;line-height:1.4;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+img,svg,video,canvas{display:block;max-width:100%}
+button,input,select,textarea{font:inherit}
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--focus); outline-offset:2px}

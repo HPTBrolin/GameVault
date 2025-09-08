@@ -1,0 +1,23 @@
+import { Outlet } from 'react-router-dom';
+import { Suspense, lazy } from "react";
+import {} from "react-router-dom";
+
+const Library = lazy(() => import("./pages/Library"));
+const Add = lazy(() => import("./pages/Add"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Calendar = lazy(() => import("./pages/Calendar"));
+const GameDetail = lazy(() => import("./pages/GameDetail"));
+
+const router = createBrowserRouter([
+  { path: "/", element: <Suspense fallback={<div/>}><Library/></Suspense> },
+  { path: "/add", element: <Suspense fallback={<div/>}><Add/></Suspense> },
+  { path: "/settings", element: <Suspense fallback={<div/>}><Settings/></Suspense> },
+  { path: "/calendar", element: <Suspense fallback={<div/>}><Calendar/></Suspense> },
+  { path: "/game/:id", element: <Suspense fallback={<div/>}><GameDetail/></Suspense> },
+]);
+
+export default function App(){
+  return <>;
+}
+
+

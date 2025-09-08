@@ -1,0 +1,36 @@
+
+# api/app/routers/games.py — safer defaults + correct total with filters
+from fastapi import APIRouter, Depends
+from sqlalchemy import select, func
+from sqlmodel import Session
+from ..db import get_session
+from ..models import Game
+
+router = APIRouter()
+
+@router.get("/games/paged")
+def list_games_paged(
+    offset: int = 0,
+    limit: int = 30,
+    sort: str = "added_at",
+    order: str = "desc",
+    q: str | None = None,
+    sess: Session = Depends(get_session),
+):
+    limit = max(1, min(int(limit or 30), 100))
+    offset = max(0, int(offset or 0))
+
+    base = select(Game)
+    if q:
+        like = f"%{q}%"
+        base = base.where(Game.title.ilike(like))
+
+    col = getattr(Game, sort, Game.added_at)
+    base = base.order_by(col.asc() if (order == "asc") else col.desc())
+
+    count_stmt = select(func.count()).select_from(base.subquery())
+    total = sess.exec(count_stmt).one()
+
+    rows = sess.exec(base.offset(offset).limit(limit)).all()
+
+    return {{"items": rows, "total": total, "offset": offset, "limit": limit}}

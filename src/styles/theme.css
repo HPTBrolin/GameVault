@@ -1,0 +1,3 @@
+/* src/styles/theme.css */
+:root{--bg:#0f1720;--fg:#e5e7eb}
+body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--fg)}

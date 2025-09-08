@@ -1,0 +1,50 @@
+
+/* GameVault — layout SONARR-like polish (v2) */
+:root{
+  --sidebar-w: 190px;
+  --topbar-h: 56px;
+  --alpha-w: 28px;
+  --gap: 16px;
+  --radius: 10px;
+  --shadow: 0 6px 18px rgba(0,0,0,.25);
+  --bg-0:#0e1521; --bg-1:#111a28; --bg-2:#0f1c2e;
+  --ink-0:#dfe7ff; --ink-1:#a9b6d6; --ink-dim:#7d8bad;
+  --brand-a:#22c1c3; --brand-b:#7a3cff;
+  --btn:#1a2a44; --btn-hi:#223a5f; --card:#121c2b;
+}
+html,body,#root{height:100%}
+body{background:var(--bg-0); color:var(--ink-0); font-family: Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+/* Sidebar */
+.sidebar{position:fixed;z-index:30;top:0;left:0;width:var(--sidebar-w);height:100vh;background:linear-gradient(180deg,#0f1929 0%,#0b1320 100%);border-right:1px solid rgba(255,255,255,.04);box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.sidebar .brand{display:flex;align-items:center;gap:10px;height:var(--topbar-h);padding:0 14px;font-weight:700}
+.sidebar nav{padding:8px 6px 16px}
+.sidebar a{display:flex;align-items:center;gap:10px;padding:10px 12px;margin:2px 6px;border-radius:8px;color:var(--ink-1);text-decoration:none}
+.sidebar a.active,.sidebar a:hover{background:rgba(255,255,255,.06);color:var(--ink-0)}
+.sidebar .section{margin-top:10px;padding:0 10px;color:var(--ink-dim);font-size:12px;text-transform:uppercase}
+/* Topbar */
+.topbar{position:sticky;top:0;z-index:20;height:var(--topbar-h);margin-left:var(--sidebar-w);background:linear-gradient(90deg,#11998e 0%,#38ef7d 100%);box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.topbar .inner{height:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 18px}
+.topbar .search{display:flex;align-items:center;gap:8px;width:min(640px,48vw);background:rgba(0,0,0,.18);border-radius:999px;padding:6px 10px 6px 12px}
+.topbar .search input{flex:1;border:0;outline:0;height:36px;background:transparent;color:#fff}
+.topbar .actions{display:flex;gap:10px;align-items:center}
+.btn,.chip{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(255,255,255,.08);background:var(--btn);color:var(--ink-0);padding:8px 12px;border-radius:999px;cursor:pointer;text-decoration:none}
+.btn:hover{background:var(--btn-hi)}
+.btn--primary{background:linear-gradient(90deg,var(--brand-a),var(--brand-b));border-color:transparent}
+.btn--primary:hover{filter:brightness(1.1)}
+/* Page */
+.page{margin-left:var(--sidebar-w);padding:18px 18px 80px}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 18px}
+.toolbar .group{display:flex;align-items:center;gap:8px}
+/* Alphabet rail */
+.alpha-bar{position:fixed;right:8px;top:calc(var(--topbar-h) + 10px);z-index:10;display:flex;flex-direction:column;gap:4px;width:var(--alpha-w);align-items:center}
+.alpha-bar a{font-size:12px;color:var(--ink-1);text-decoration:none;width:100%;text-align:center;padding:4px 0;border-radius:6px}
+.alpha-bar a:hover,.alpha-bar a.active{background:rgba(255,255,255,.07);color:#fff}
+/* Cards grid */
+.cards{padding-right:calc(var(--alpha-w) + 18px);display:grid;gap:18px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+.card{background:var(--card);border:1px solid rgba(255,255,255,.06);border-radius:10px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.card .poster{aspect-ratio:2/3;width:100%;object-fit:cover;background:#0a1220}
+.card .body{padding:10px 12px 12px}
+.card .title{font-weight:600;font-size:15px;line-height:1.25;margin:2px 0 6px}
+.card .meta{display:flex;gap:8px;color:var(--ink-dim);font-size:12px}
+/* Empty */
+.empty{height:38vh;display:grid;place-items:center;color:var(--ink-1);border:1px dashed rgba(255,255,255,.08);border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0))}

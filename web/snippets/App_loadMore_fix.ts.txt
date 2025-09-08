@@ -1,0 +1,20 @@
+// Sugestão para o teu App.tsx
+// Evita incrementar offset quando não há itens e reseta hasMore corretamente.
+const loadMore = async () => {
+  if (!hasMore || loadingMore) return;
+  setLoadingMore(true);
+  try {
+    const page = await listGamesPaged(offset, 30, filters);
+    const items = page.items || [];
+    if (items.length === 0) { // nada para acrescentar
+      setHasMore(false);
+      return;
+    }
+    setGames(prev => [...prev, ...items]);
+    const newOffset = offset + items.length;
+    setOffset(newOffset);
+    setHasMore(newOffset < (page.total || 0));
+  } finally {
+    setLoadingMore(false);
+  }
+};

@@ -1,0 +1,12 @@
+
+/* Light theme optional */
+:root.light{
+  --bg:#f7f9fd;
+  --surface:#ffffff;
+  --surface-2:#f1f5fb;
+  --text:#0b1220;
+  --text-2:#243046;
+  --muted:#56617a;
+  --border:rgba(0,0,0,.12);
+  color-scheme: light;
+}
