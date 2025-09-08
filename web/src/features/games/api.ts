@@ -1,46 +1,55 @@
 import { apiGet, apiPost, apiDelete } from "../../lib/http";
 
-export type GameCard = {
+export type Game = {
   id: number;
   title: string;
   platform?: string;
-  release_date?: string;
   cover_url?: string;
+  release_date?: string | null;
+  [k: string]: any;
 };
 
-export type Paged<T> = {
+export type Page<T> = {
   items: T[];
   total: number;
+  offset: number;
+  limit: number;
 };
 
-export type GameFilters = {
-  q?: string;
-  platform?: string;
-  status?: string;
-  tag?: string;
-  sort?: string;
-  order?: "asc" | "desc";
-};
-
-export async function listGamesPaged(offset = 0, limit = 30, filters: GameFilters = {}): Promise<Paged<GameCard>> {
-  const data = await apiGet<Paged<GameCard>>("/games/paged", { offset, limit, ...filters });
-  return {
-    items: data?.items ?? [],
-    total: data?.total ?? 0,
-  };
+// Unified paged loader with graceful 404 fallback to /games
+export async function listGamesPaged(
+  offset = 0,
+  limit = 30,
+  filters?: Record<string, any>
+): Promise<Page<Game>> {
+  try {
+    const data: any = await apiGet("/games/paged", { offset, limit, ...(filters||{}) });
+    if (data && Array.isArray(data.items)) {
+      return { items: data.items, total: Number(data.total ?? data.items.length), offset, limit };
+    }
+    if (Array.isArray(data)) {
+      return { items: data, total: data.length, offset: 0, limit: data.length };
+    }
+    return { items: [], total: 0, offset, limit };
+  } catch (err: any) {
+    const status = err?.response?.status ?? err?.status;
+    if (status === 404) {
+      // Older API without /games/paged
+      const arr: Game[] = (await apiGet("/games")) ?? [];
+      return { items: arr, total: arr.length, offset: 0, limit: arr.length };
+    }
+    throw err;
+  }
 }
 
-export async function searchProviders(q: string, provider?: string) {
-  // Backend espera ?q=..., não ?params[q]=
-  const data = await apiGet<any>("/providers/search", { q, provider });
-  // Alguns backends podem devolver diretamente array, outros { items: [...] }
-  return (data?.items ?? data) || [];
+export async function getGame(id: number | string): Promise<Game> {
+  return apiGet(`/games/${id}`);
 }
 
-export async function createGame(payload: any) {
-  return await apiPost("/games", payload);
+export async function createGame(payload: Partial<Game>): Promise<Game> {
+  return apiPost("/games", payload);
 }
 
-export async function deleteGame(id: number) {
-  return await apiDelete(`/games/${id}`);
+export async function deleteGame(id: number | string): Promise<void> {
+  await apiDelete(`/games/${id}`);
 }
