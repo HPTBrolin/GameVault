@@ -1,38 +1,35 @@
-import React from "react";
+
+import React, { useEffect, useState } from "react";
+import Layout from "../components/Layout";
 import { useParams } from "react-router-dom";
-import { getGame } from "../features/games/api";
+import { getGame, type Game } from "../features/games/api";
 
-export default function GameDetail(){
+export default function GameDetailPage(){
   const { id } = useParams();
-  const [item, setItem] = React.useState<any>(null);
-  const [loading, setLoading] = React.useState(true);
+  const [g,setG] = useState<Game|undefined>();
 
-  React.useEffect(()=>{
-    let alive = true;
-    (async ()=>{
+  useEffect(()=>{
+    (async()=>{
+      if(!id) return;
       try{
-        if (id){
-          const g = await getGame(id);
-          if (alive) setItem(g);
-        }
-      }finally{
-        if (alive) setLoading(false);
-      }
+        const data = await getGame(id);
+        setG(data);
+      }catch{}
     })();
-    return ()=>{ alive = false; };
-  }, [id]);
-
-  if (loading) return <div>A carregar…</div>;
-  if (!item) return <div>Jogo não encontrado.</div>;
+  },[id]);
 
   return (
-    <div style={{display:"grid", gridTemplateColumns:"320px 1fr", gap:20}}>
-      {item.cover_url && <img src={item.cover_url} style={{width:"100%", borderRadius:12}} />}
-      <div>
-        <h2 style={{marginTop:0}}>{item.title}</h2>
-        <div style={{opacity:.8}}>{item.platform || "—"} {item.release_date ? `• ${new Date(item.release_date).toISOString().slice(0,10)}` : ""}</div>
-        {item.slug && <div style={{opacity:.6, marginTop:8}}>slug: {item.slug}</div>}
-      </div>
-    </div>
+    <Layout>
+      {!g ? <div className="loading">A carregar…</div> : (
+        <div className="detail">
+          <div className="cover big" style={{backgroundImage:`url(${g.cover_url||''})`}} />
+          <div className="meta">
+            <h2>{g.title}</h2>
+            <div className="sub">{g.platform||""}</div>
+            <div className="sub">Lançado: {g.release_date? new Date(g.release_date).toLocaleDateString():"?"}</div>
+          </div>
+        </div>
+      )}
+    </Layout>
   );
 }

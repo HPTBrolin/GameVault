@@ -1,59 +1,67 @@
-import { useEffect, useState } from "react";
-import { listGamesPaged } from "../features/games/api";
 
-type Card = {
-  id: number;
-  title: string;
-  platform?: string;
-  release_date?: string;
-  cover_url?: string;
-};
+import React, { useEffect, useMemo, useState } from "react";
+import Layout from "../components/Layout";
+import FilterPanel from "../components/FilterPanel";
+import { listGames, type Game, type GameFilters } from "../features/games/api";
 
-export default function Library() {
-  const [items, setItems] = useState<Card[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+const ALL_PLATFORMS = ["PS5","PS4","Xbox Series","Xbox One","Switch","PC","Steam","GOG","Epic","Web","Mobile"];
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        setLoading(true);
-        const page = await listGamesPaged(0, 30, {});
-        if (!cancelled) {
-          setItems(page?.items ?? []);
-          setTotal(page?.total ?? 0);
-        }
-      } catch (e) {
-        console.error("Falha a carregar jogos", e);
-        if (!cancelled) {
-          setItems([]);
-          setTotal(0);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+export default function Library(){
+  const [filters,setFilters] = useState<GameFilters>({ sort:"added" });
+  const [drawer,setDrawer] = useState(false);
+  const [page,setPage] = useState(1);
+  const [items,setItems] = useState<Game[]>([]);
+  const [total,setTotal] = useState(0);
+  const pageSize = 30;
+  const hasMore = items.length < total;
+
+  useEffect(()=>{
+    let ignore=false;
+    (async ()=>{
+      const pageResp = await listGames(0,pageSize,filters);
+      if(ignore) return;
+      setItems(pageResp.items);
+      setTotal(pageResp.total);
+      setPage(1);
     })();
-    return () => { cancelled = true; };
-  }, []);
+    return ()=>{ ignore=true; };
+  },[filters.sort, filters.platform, filters.status, filters.q]);
+
+  async function loadMore(){
+    const next = await listGames(items.length, pageSize, filters);
+    setItems(prev=>[...prev, ...next.items]);
+    setTotal(next.total);
+    setPage(p=>p+1);
+  }
 
   return (
-    <div style={{ padding: 16 }}>
-      {loading && <div>A carregar…</div>}
-      {!loading && items.length === 0 && <div>Sem resultados.</div>}
-      {!loading && items.length > 0 && (
-        <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
-          {items.map(g => (
-            <div key={g.id} style={{ background: "#111826", borderRadius: 8, padding: 12 }}>
-              <div style={{ height: 280, background: "#0b1220", borderRadius: 6, marginBottom: 8, overflow: "hidden" }}>
-                {g.cover_url ? <img src={g.cover_url} alt={g.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
-              </div>
-              <div style={{ fontWeight: 600 }}>{g.title}</div>
-              <div style={{ opacity: 0.7, fontSize: 12 }}>{g.platform || ""} {g.release_date ? `• ${g.release_date}` : ""}</div>
-            </div>
+    <Layout>
+      <div className="toolbar">
+        <button className="btn" onClick={()=>setDrawer(true)}>Filtros</button>
+        <div className="spacer"/>
+        <div className="meta">{items.length} / {total}</div>
+      </div>
+
+      {items.length===0 ? (
+        <div className="empty">Sem jogos para mostrar.</div>
+      ):(
+        <div className="grid">
+          {items.map(g=>(
+            <a key={g.id} className="card" href={`/game/${g.id}`}>
+              <div className="cover" style={{backgroundImage:`url(${g.cover_url||''})`}}/>
+              <div className="title">{g.title}</div>
+              <div className="sub">{g.platform||""}</div>
+            </a>
           ))}
         </div>
       )}
-    </div>
+
+      <div className="pager">
+        <div className="grow"/>
+        {hasMore && <button className="btn" onClick={loadMore}>Carregar mais</button>}
+      </div>
+
+      <FilterPanel open={drawer} onClose={()=>setDrawer(false)} filters={filters} onChange={setFilters} platforms={ALL_PLATFORMS}/>
+    </Layout>
   );
 }

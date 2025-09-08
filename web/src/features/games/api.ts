@@ -1,90 +1,78 @@
-// web/src/features/games/api.ts
-import { get, post, del as apiDel, api } from "../../lib/http";
+
+import { apiGet, apiPost, apiDel } from "../../lib/http";
+
+export type Game = {
+  id: number;
+  title: string;
+  slug?: string;
+  platform?: string;
+  cover_url?: string;
+  release_date?: string;
+  status?: "owned"|"wishlist"|"playing"|string;
+  added_at?: string;
+};
+
+export type Page<T> = { items: T[]; total: number };
 
 export type GameFilters = {
   q?: string;
   platform?: string;
   status?: string;
-  sort?: string; // "name" | "added" | "console"
+  sort?: string; // name|added|console
+  dir?: "asc"|"desc";
 };
 
-export type Game = {
-  id: number;
+export async function listGames(offset = 0, limit = 30, filters?: GameFilters): Promise<Page<Game>>{
+  // Prefer paged endpoint, but gracefully fall back to /games
+  try{
+    return await apiGet<Page<Game>>("/games/paged", { offset, limit, ...filters });
+  }catch{
+    const all = await apiGet<Game[]>("/games", filters);
+    const items = all.slice(offset, offset+limit);
+    return { items, total: all.length };
+  }
+}
+
+export async function listGamesPagedByPage(page = 1, pageSize = 30, filters?: GameFilters){
+  const offset = (page-1)*pageSize;
+  return listGames(offset, pageSize, filters);
+}
+
+export async function getGame(id: number|string): Promise<Game>{
+  return apiGet<Game>(`/games/${id}`);
+}
+
+export type CreateGamePayload = {
   title: string;
-  platform?: string | null;
-  cover_url?: string | null;
-  added_at?: string;
+  platform?: string;
+  cover_url?: string;
+  release_date?: string | null;
   status?: string;
   slug?: string;
 };
 
-export type Paged<T> = { items: T[]; total: number; offset: number; limit: number };
-
-// ---- Helpers --------------------------------------------------------------
-function buildQuery(params: Record<string, any>) {
-  const q = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== undefined && v !== null && v !== "") q.set(k, String(v));
-  });
-  return q.toString();
+export async function createGame(payload: CreateGamePayload): Promise<Game>{
+  return apiPost<Game>("/games", payload);
 }
 
-// Some backends have /games/paged; others only /games.
-// We try /games/paged first; if 404, fall back to /games and slice locally.
-export async function listGamesPaged(
-  offset = 0,
-  limit = 30,
-  filters: GameFilters = {}
-): Promise<Paged<Game>> {
-  const qs = buildQuery({ offset, limit, ...filters });
-  // Try paged endpoint
-  try {
-    const page = await get<Paged<Game>>(`/games/paged?${qs}`);
-    if (page && Array.isArray(page.items)) return page;
-  } catch (e: any) {
-    // If 404 or any structural issue, try fallback
-  }
-  // Fallback: /games returns an array
-  const all = await get<Game[]>(`/games?${buildQuery(filters)}`);
-  const items = all.slice(offset, offset + limit);
-  return { items, total: all.length, offset, limit };
+export async function deleteGame(id: number|string): Promise<{ok:true}>{
+  return apiDel<{ok:true}>(`/games/${id}`);
 }
 
-// Sometimes components asked for listGamesPagedByPage(page)
-export const listGamesPagedByPage = async (
-  page: number,
-  pageSize = 30,
-  filters: GameFilters = {}
-) => {
-  const offset = Math.max(0, page) * pageSize;
-  return listGamesPaged(offset, pageSize, filters);
-};
-
-export async function getGame(id: number | string): Promise<Game> {
-  return get<Game>(`/games/${id}`);
-}
-
-export async function createGame(payload: Partial<Game>) {
-  return post<Game>("/games", payload);
-}
-
-export async function deleteGame(id: number | string) {
-  return apiDel(`/games/${id}`);
-}
-
-export type ProviderItem = {
+export type ProviderResult = {
+  id: string;
   title: string;
-  platform?: string;
-  release_date?: string;
+  year?: number;
+  platforms?: string[];
   cover_url?: string;
-  provider?: string;
-  external_id?: string | number;
+  provider: string; // rawg, igdb, etc
 };
 
-export async function searchProviders(q: string): Promise<ProviderItem[]> {
-  if (!q || q.trim().length < 2) return [];
-  return get<ProviderItem[]>(`/providers/search?${buildQuery({ q })}`);
+export async function searchProviders(q: string): Promise<ProviderResult[]>{
+  if(!q?.trim()) return [];
+  try{
+    return await apiGet<ProviderResult[]>("/providers/search", { q });
+  }catch{
+    return [];
+  }
 }
-
-// Keep legacy names for compatibility if some components import these:
-export { searchProviders as providerSearch };
