@@ -1,3 +1,57 @@
+# Salva como: scripts\win\fix-frontend-exports.ps1
+$ErrorActionPreference = "Stop"
+
+$newHttp = @'
+import axios, { AxiosInstance } from "axios";
+
+let BASE = (localStorage.getItem("settings.apiBase") || import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000").toString();
+
+export function setApiBase(url: string){
+  BASE = url;
+}
+
+function join(base: string, url: string){
+  if (/^https?:\/\//i.test(url)) return url;
+  return base.replace(/\/+$/,"") + "/" + url.replace(/^\/+/,"");
+}
+
+const api: AxiosInstance = axios.create({
+  // baseURL: BASE  -> usamos join(base,url) para permitir mudar BASE em runtime
+  withCredentials: false,
+  timeout: 20000,
+});
+
+// --- Wrappers básicos (com fallback de params/data) ---
+export async function get<T=any>(url: string, params?: any): Promise<T> {
+  const r = await api.get<T>(join(BASE, url), { params });
+  return r.data as T;
+}
+
+export async function post<T=any>(url: string, data?: any): Promise<T> {
+  const r = await api.post<T>(join(BASE, url), data);
+  return r.data as T;
+}
+
+export async function put<T=any>(url: string, data?: any): Promise<T> {
+  const r = await api.put<T>(join(BASE, url), data);
+  return r.data as T;
+}
+
+export async function del<T=any>(url: string): Promise<T> {
+  const r = await api.delete<T>(join(BASE, url));
+  return r.data as T;
+}
+
+// --- Aliases retro-compatíveis (evita “does not provide an export named ...”) ---
+export const apiGet = get;
+export const apiPost = post;
+export const apiPut = put;
+export const apiDelete = del;
+
+export default { get, post, put, del, setApiBase };
+'@
+
+$newGamesApi = @'
 /**
  * API de jogos: exports estáveis para o resto da app.
  * Mantém nomes esperados pelos componentes (searchProviders, getGame, createGame, etc.).
@@ -126,3 +180,21 @@ export default {
   getSettings,
   saveSettings
 };
+'@
+
+function Write-FileSafe($path, $content) {
+  if (Test-Path $path) {
+    Copy-Item $path "$path.bak" -Force
+  } else {
+    New-Item -ItemType Directory -Force -Path (Split-Path $path) | Out-Null
+  }
+  Set-Content -Path $path -Value $content -Encoding UTF8
+  Write-Host "Atualizado: $path (backup em $path.bak se existia)" -ForegroundColor Green
+}
+
+Write-FileSafe "src\lib\http.ts" $newHttp
+Write-FileSafe "src\features\games\api.ts" $newGamesApi
+
+Write-Host "`n✅ Patch aplicado. Passos:" -ForegroundColor Cyan
+Write-Host "  1) npm run dev (ou reiniciar o vite)" -ForegroundColor DarkGray
+Write-Host "  2) Em Add.tsx, garantir:  import { searchProviders, createGame } from '@/features/games/api';" -ForegroundColor DarkGray

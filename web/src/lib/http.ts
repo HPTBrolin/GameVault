@@ -1,35 +1,47 @@
-// Lightweight axios wrapper with stable named exports
-// Works with imports expecting either apiGet/apiPost/... OR get/post/put/del
-import axios from "axios";
+import axios, { AxiosInstance } from "axios";
 
-export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:8000",
+let BASE = (localStorage.getItem("settings.apiBase") || import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000").toString();
+
+export function setApiBase(url: string){
+  BASE = url;
+}
+
+function join(base: string, url: string){
+  if (/^https?:\/\//i.test(url)) return url;
+  return base.replace(/\/+$/,"") + "/" + url.replace(/^\/+/,"");
+}
+
+const api: AxiosInstance = axios.create({
+  // baseURL: BASE  -> usamos join(base,url) para permitir mudar BASE em runtime
   withCredentials: false,
+  timeout: 20000,
 });
 
-export type Params = Record<string, any> | undefined;
-
-export async function apiGet<T=any>(url: string, params?: Params): Promise<T> {
-  const res = await api.get<T>(url, { params });
-  return res.data as T;
-}
-export async function apiPost<T=any>(url: string, data?: any): Promise<T> {
-  const res = await api.post<T>(url, data);
-  return res.data as T;
-}
-export async function apiPut<T=any>(url: string, data?: any): Promise<T> {
-  const res = await api.put<T>(url, data);
-  return res.data as T;
-}
-export async function apiDelete<T=any>(url: string, params?: Params): Promise<T> {
-  const res = await api.delete<T>(url, { params });
-  return res.data as T;
+// --- Wrappers básicos (com fallback de params/data) ---
+export async function get<T=any>(url: string, params?: any): Promise<T> {
+  const r = await api.get<T>(join(BASE, url), { params });
+  return r.data as T;
 }
 
-// Backwards-compatible aliases used in parts of the app
-export const get  = apiGet;
-export const post = apiPost;
-export const put  = apiPut;
-export const del  = apiDelete;
+export async function post<T=any>(url: string, data?: any): Promise<T> {
+  const r = await api.post<T>(join(BASE, url), data);
+  return r.data as T;
+}
 
-export default api;
+export async function put<T=any>(url: string, data?: any): Promise<T> {
+  const r = await api.put<T>(join(BASE, url), data);
+  return r.data as T;
+}
+
+export async function del<T=any>(url: string): Promise<T> {
+  const r = await api.delete<T>(join(BASE, url));
+  return r.data as T;
+}
+
+// --- Aliases retro-compatíveis (evita “does not provide an export named ...”) ---
+export const apiGet = get;
+export const apiPost = post;
+export const apiPut = put;
+export const apiDelete = del;
+
+export default { get, post, put, del, setApiBase };
