@@ -1,21 +1,24 @@
-
-Param(
-  [string]$Root = "."
+param(
+  [Parameter(Mandatory=$false)][string]$Root = "."
 )
+
 $ErrorActionPreference = "Stop"
-$web = Join-Path $Root "web"
-if(!(Test-Path $web)){ Write-Host "Pasta 'web' não encontrada em $Root" -ForegroundColor Red; exit 1 }
-$files = Get-ChildItem -Path $web -Include *.ts,*.tsx -Recurse
-foreach($f in $files){
-  $txt = Get-Content -Path $f.FullName -Raw
-  $new = $txt `
-    -replace '\bFalse\b','false' `
-    -replace '\bTrue\b','true' `
-    -replace '([^A-Za-z_])or([^A-Za-z_])','$1||$2' `
-    -replace '([^A-Za-z_])and([^A-Za-z_])','$1&&$2'
-  if($new -ne $txt){
-    Set-Content -Path $f.FullName -Value $new -NoNewline
-    Write-Host "Patched $($f.FullName)" -ForegroundColor Green
-  }
+
+Write-Host "Normalizar booleanos e operadores em TS/TSX (true/false, &&, ||)..." -ForegroundColor Cyan
+
+$paths = Get-ChildItem -Path $Root -Recurse -Include *.ts,*.tsx | Where-Object { $_.FullName -notmatch "\\node_modules\\|\\dist\\|\\build\\|\\.vite\\|\\.next\\" }
+
+foreach($file in $paths){
+  $txt = Get-Content -Raw -Path $file.FullName
+
+  # Só troca fora de strings simples (heurística básica)
+  $txt = $txt -replace '\bTrue\b', 'true'
+  $txt = $txt -replace '\bFalse\b', 'false'
+  # Evita substituir 'or' em palavras (ex: "floor")
+  $txt = $txt -replace '(\s)or(\s)', '$1||$2'
+  $txt = $txt -replace '(\s)and(\s)', '$1&&$2'
+
+  Set-Content -Path $file.FullName -Value $txt -NoNewline
 }
-Write-Host "Fix concluído." -ForegroundColor Cyan
+
+Write-Host "Concluído." -ForegroundColor Green

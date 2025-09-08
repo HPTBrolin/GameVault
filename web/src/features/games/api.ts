@@ -1,40 +1,41 @@
-import { get, post, del } from "../../lib/http";
+import { get, post, del as _del, apiGet } from "../../lib/http";
 
 export type Game = {
-  id: number;
+  id?: number;
   title: string;
   platform?: string;
-  slug?: string;
   cover_url?: string;
+  status?: "owned"|"wishlist"|"loaned";
   added_at?: string;
+  slug?: string;
 };
 
 export type Paged<T> = { items: T[]; total: number; offset: number; limit: number };
 
-export async function listGamesPagedByPage(page: number, limit: number, filters?: Record<string,string>) {
-  const params = new URLSearchParams();
-  params.set("offset", String(page * limit));
-  params.set("limit", String(limit));
-  if (filters?.q) params.set("q", filters.q);
-  if (filters?.platform) params.set("platform", filters.platform);
-  if (filters?.status) params.set("status", filters.status);
-  return await get<Paged<Game>>(`/games/paged?${params.toString()}`);
+export async function listGamesPagedByPage(page:number, pageSize:number, filters?: any): Promise<Paged<Game>>{
+  const offset = Math.max(0, (page-1)*pageSize);
+  const params:any = { offset, limit: pageSize };
+  if(filters?.q) params.q = filters.q;
+  if(filters?.platform) params.platform = filters.platform;
+  if(filters?.status) params.status = filters.status;
+  if(filters?.sort) params.sort = filters.sort;
+  return await get<Paged<Game>>("/games/paged", params);
 }
 
-export async function getGame(idOrSlug: string) {
-  return await get<Game>(`/games/${encodeURIComponent(idOrSlug)}`);
+export async function getGame(id:string|number): Promise<Game>{
+  return await get<Game>(`/games/${id}`);
 }
 
-export async function createGame(payload: Partial<Game>) {
+export async function createGame(payload: Partial<Game>): Promise<Game>{
   return await post<Game>("/games", payload);
 }
 
-export async function deleteGame(id: number) {
-  return await del<{}>(`/games/${id}`);
+export async function deleteGame(id:string|number): Promise<{ ok: boolean }>{ 
+  return await _del<{ok:boolean}>(`/games/${id}`);
 }
 
-export async function searchProviders(q: string, kind?: string) {
-  const qs = new URLSearchParams({ q });
-  if (kind) qs.set("kind", kind);
-  return await get<any[]>(`/providers/search?${qs.toString()}`);
+export async function searchProviders(q:string): Promise<any[]>{
+  const data = await apiGet<any>("/providers/search", { q });
+  if(Array.isArray(data)) return data;
+  return data?.items || [];
 }
