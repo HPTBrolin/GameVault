@@ -1,0 +1,44 @@
+import os
+import httpx
+
+RAWG_API = "https://api.rawg.io/api"
+
+def _key():
+    return os.getenv("RAWG_API_KEY") or os.getenv("RAWG_APIKEY") or ""
+
+def _client():
+    timeout = httpx.Timeout(10.0, connect=10.0)
+    return httpx.AsyncClient(timeout=timeout)
+
+async def search(q: str):
+    """
+    Search RAWG and return a compact, null-safe list for the UI.
+    Each item includes: title, released, image, platforms[], provider, slug/external id.
+    """
+    params = {"search": q, "page_size": 24}
+    if _key():
+        params["key"] = _key()
+
+    async with _client() as c:
+        r = await c.get(f"{RAWG_API}/games", params=params)
+        r.raise_for_status()
+        data = r.json() or {}
+        items = data.get("results") or []
+        out = []
+        for it in items:
+            platforms = []
+            for p in (it.get("platforms") or []):
+                plat = (p or {}).get("platform") or {}
+                name = plat.get("name")
+                if name:
+                    platforms.append(name)
+            out.append({
+                "provider": "rawg",
+                "externalId": str(it.get("id")) if it.get("id") is not None else None,
+                "slug": it.get("slug") or None,
+                "title": it.get("name") or "",
+                "released": it.get("released") or None,
+                "image": it.get("background_image") or None,
+                "platforms": platforms,
+            })
+        return out

@@ -1,82 +1,56 @@
-from __future__ import annotations
-from typing import Optional, Literal, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session, select, or_, func
-from ..db import get_session
-from ..models import Game
+from typing import Optional, List, Any, Dict
+from fastapi import APIRouter, Depends, Query, HTTPException
+from sqlmodel import Session, select, func
+from sqlalchemy import asc, desc
+# assume Game & get_session are already declared in your project
+try:
+    from ..models import Game  # adjust if your model path differs
+except Exception:
+    from ..db import Game  # fallback path if your project uses db.py
 
-router = APIRouter(prefix="/games", tags=["games"])
+try:
+    from ..db import get_session  # typical helper to create a Session
+except Exception:
+    # fallback for projects that use a different session import
+    from ..database import get_session  # type: ignore
 
-SortField = Literal["added_at","title","platform","release_date"]
-Order = Literal["asc","desc"]
+router = APIRouter()
 
-def _apply_filters(stmt, q: Optional[str], platform: Optional[str], status: Optional[str]):
-    if q:
-        like = f"%{q.lower()}%"
-        stmt = stmt.where(or_(func.lower(Game.title).like(like),
-                              func.lower(Game.slug).like(like),
-                              func.lower(Game.platform).like(like)))
-    if platform:
-        stmt = stmt.where(Game.platform == platform)
-    if status:
-        stmt = stmt.where(Game.status == status)
-    return stmt
-
-@router.get("/paged")
+@router.get("/games/paged")
 def list_games_paged(
-    offset: int = 0,
-    limit: int = 30,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(30, ge=1, le=200),
+    sort: str = Query("added"),
+    order: str = Query("desc"),
     q: Optional[str] = None,
-    platform: Optional[str] = None,
-    status: Optional[str] = None,
-    sort: SortField = "added_at",
-    order: Order = "desc",
     sess: Session = Depends(get_session),
 ) -> Dict[str, Any]:
-    stmt = select(Game)
-    stmt = _apply_filters(stmt, q, platform, status)
-    total = sess.exec(_apply_filters(select(func.count()), q, platform, status).select_from(Game)).one()
-    # sort
-    col = getattr(Game, sort)
-    col = col.desc() if order == "desc" else col.asc()
-    items = sess.exec(stmt.order_by(col).offset(offset).limit(limit)).all()
-    return {
-        "total": total or 0,
-        "items": items,
-        "offset": offset,
-        "limit": limit,
+    sort_map = {
+        "added": "added_at",
+        "name": "title",
+        "platform": "platform",
     }
+    col_name = sort_map.get(sort, "added_at")
+    try:
+        col = getattr(Game, col_name)
+    except AttributeError:
+        col = getattr(Game, "added_at")
 
-@router.get("/{game_id}")
-def get_game(game_id: int, sess: Session = Depends(get_session)) -> Game:
-    g = sess.get(Game, game_id)
-    if not g:
-        raise HTTPException(status_code=404, detail="Game not found")
-    return g
+    order_fn = desc if order.lower() == "desc" else asc
 
-@router.post("")
-def create_game(payload: Dict[str, Any], sess: Session = Depends(get_session)) -> Game:
-    # normalize minimal fields
-    title = payload.get("title")
-    slug = payload.get("slug") or (title or "").lower().replace(" ", "-")
-    g = Game(
-        title=title or "Untitled",
-        slug=slug,
-        platform=payload.get("platform"),
-        cover_url=payload.get("cover_url"),
-        release_date=payload.get("release_date"),
-        status=payload.get("status") or "owned",
-    )
-    sess.add(g)
-    sess.commit()
-    sess.refresh(g)
-    return g
+    stmt = select(Game)
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where(Game.title.ilike(like))
+    stmt = stmt.order_by(order_fn(col)).offset(offset).limit(limit)
 
-@router.delete("/{game_id}")
-def delete_game(game_id: int, sess: Session = Depends(get_session)) -> Dict[str, Any]:
-    g = sess.get(Game, game_id)
-    if not g:
-        raise HTTPException(status_code=404, detail="Game not found")
-    sess.delete(g)
-    sess.commit()
-    return {"ok": True}
+    items: List[Game] = list(sess.exec(stmt).all())
+
+    total_stmt = select(func.count()).select_from(Game)
+    if q:
+        total_stmt = total_stmt.where(Game.title.ilike(f"%{q}%"))
+    total = sess.exec(total_stmt).one()
+    if isinstance(total, tuple):
+        total = total[0]
+
+    return {"items": items, "total": int(total)}

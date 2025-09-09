@@ -1,0 +1,33 @@
+import { apiGet, apiPost, apiDel } from "@/lib/http";
+import type { Game, Paged, SortKey, SortOrder } from "./types";
+import { mapBackendGame } from "./types";
+
+export async function listGamesPagedByPage(
+  page: number,
+  limit: number,
+  sort: SortKey,
+  order: SortOrder,
+  q?: string
+): Promise<Paged<Game>> {
+  const offset = Math.max(0, (page - 1) * limit);
+  const params: any = { offset, limit, sort, order };
+  if (q && q.trim()) params.q = q.trim();
+  const data: any = await apiGet("/games/paged", { params });
+  const items = (data?.items ?? data?.results ?? []).map(mapBackendGame);
+  const total = data?.total ?? data?.count ?? items.length;
+  return { items, total };
+}
+
+export async function getGame(id: string | number): Promise<Game> {
+  const data: any = await apiGet(`/games/${id}`);
+  return mapBackendGame(data);
+}
+
+export async function createGame(payload: any): Promise<Game> {
+  const data: any = await apiPost("/games", payload);
+  return mapBackendGame(data);
+}
+
+export async function deleteGame(id: string | number) {
+  await apiDel(`/games/${id}`);
+}

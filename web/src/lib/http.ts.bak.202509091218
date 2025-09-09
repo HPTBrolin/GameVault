@@ -1,0 +1,33 @@
+import axios, { AxiosRequestConfig } from "axios";
+
+const baseURL = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+
+export const api = axios.create({
+  baseURL,
+  timeout: 15000,
+  withCredentials: false,
+});
+
+api.interceptors.response.use(
+  (r) => r,
+  (err) => {
+    // mantém a mensagem útil
+    if (err?.message === "Network Error" || err?.code === "ERR_NETWORK") {
+      err.message = "offline";
+    }
+    return Promise.reject(err);
+  }
+);
+
+export async function apiGet<T = any>(url: string, config?: AxiosRequestConfig) {
+  const r = await api.get<T>(url, config);
+  return r.data as T;
+}
+export async function apiPost<T = any>(url: string, data?: any, config?: AxiosRequestConfig) {
+  const r = await api.post<T>(url, data, config);
+  return r.data as T;
+}
+export async function apiDel<T = any>(url: string, config?: AxiosRequestConfig) {
+  const r = await api.delete<T>(url, config);
+  return r.data as T;
+}

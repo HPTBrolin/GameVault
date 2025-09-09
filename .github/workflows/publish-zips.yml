@@ -1,0 +1,39 @@
+name: publish-zips
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create zip archives (web, api, full)
+        run: |
+          mkdir -p artifacts
+          # web
+          zip -r artifacts/gamevault-web.zip web             -x "web/node_modules/*" "web/dist/*" "web/.vite/*" "web/coverage/*"                "web/.DS_Store" "web/*.log" "web/.idea/*" "web/.vscode/*"
+          # api
+          zip -r artifacts/gamevault-api.zip api             -x "api/.venv/*" "api/__pycache__/*" "api/*.db" "api/*.sqlite"                "api/.mypy_cache/*" "api/.pytest_cache/*" "api/.idea/*" "api/.vscode/*"
+          # full source (sanitized)
+          zip -r artifacts/gamevault-src.zip web api             -x "web/node_modules/*" "web/dist/*" "web/.vite/*"                "api/.venv/*" "api/__pycache__/*" "api/*.db" "api/*.sqlite"                "*/.DS_Store" "*/.idea/*" "*/.vscode/*"
+
+      - name: Create/Update 'latest' release with assets
+        uses: marvinpinto/action-automatic-releases@v1.2.1
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: false
+          title: "Latest build"
+          files: |
+            artifacts/gamevault-web.zip
+            artifacts/gamevault-api.zip
+            artifacts/gamevault-src.zip

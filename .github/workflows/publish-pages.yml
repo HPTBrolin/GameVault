@@ -1,0 +1,41 @@
+name: publish-pages-artifacts
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build public artifacts
+        run: |
+          mkdir -p public/artifacts
+          zip -r public/artifacts/gamevault-web.zip web             -x "web/node_modules/*" "web/dist/*" "web/.vite/*" "web/coverage/*"                "web/.DS_Store" "web/*.log" "web/.idea/*" "web/.vscode/*"
+          zip -r public/artifacts/gamevault-api.zip api             -x "api/.venv/*" "api/__pycache__/*" "api/*.db" "api/*.sqlite"                "api/.mypy_cache/*" "api/.pytest_cache/*" "api/.idea/*" "api/.vscode/*"
+          zip -r public/artifacts/gamevault-src.zip web api             -x "web/node_modules/*" "web/dist/*" "web/.vite/*"                "api/.venv/*" "api/__pycache__/*" "api/*.db" "api/*.sqlite"                "*/.DS_Store" "*/.idea/*" "*/.vscode/*"
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

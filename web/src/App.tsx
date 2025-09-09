@@ -1,27 +1,23 @@
+import { NavLink, Outlet } from "react-router-dom";
+import { Suspense } from "react";
 
-import React, { Suspense, lazy } from "react";
-import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
-import "./styles/app.css";
-
-const Library = lazy(() => import("./pages/Library"));
-const Add = lazy(() => import("./pages/Add"));
-const Settings = lazy(() => import("./pages/Settings"));
-const Calendar = lazy(() => import("./pages/Calendar"));
-const GameDetail = lazy(() => import("./pages/GameDetail"));
-
-const router = createBrowserRouter([
-  { path: "/", element: <Library /> },
-  { path: "/add", element: <Add /> },
-  { path: "/settings", element: <Settings /> },
-  { path: "/calendar", element: <Calendar /> },
-  { path: "/game/:id", element: <GameDetail /> },
-  { path: "*", element: <Navigate to="/" replace /> }
-]);
-
-export default function App(){
+export default function App() {
   return (
-    <Suspense fallback={<div className="loading">A carregar…</div>}>
-      <RouterProvider router={router} />
-    </Suspense>
+    <div className="app-shell" style={{display:"grid",gridTemplateColumns:"240px 1fr",minHeight:"100vh"}}>
+      <aside style={{background:"#0B1220",color:"#e6eefc",padding:"16px"}}>
+        <div style={{fontWeight:700,letterSpacing:0.3,marginBottom:16}}>GameVault</div>
+        <nav style={{display:"grid",gap:8}}>
+          <NavLink to="/" end className={({isActive})=> isActive?"active":""}>Library</NavLink>
+          <NavLink to="/add" className={({isActive})=> isActive?"active":""}>Add New</NavLink>
+          <NavLink to="/calendar" className={({isActive})=> isActive?"active":""}>Calendar</NavLink>
+          <NavLink to="/settings" className={({isActive})=> isActive?"active":""}>Settings</NavLink>
+        </nav>
+      </aside>
+      <main style={{padding:"16px"}}>
+        <Suspense fallback={<div>A carregar…</div>}>
+          <Outlet />
+        </Suspense>
+      </main>
+    </div>
   );
 }

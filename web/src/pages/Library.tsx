@@ -1,102 +1,81 @@
-import React from "react";
-import { listGamesPagedByPage, type Game } from "../features/games/api";
-import FilterDrawer, { type GameFilters } from "../components/FilterDrawer";
-import { useSearchParams, Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { listGamesPagedByPage } from "@/features/games/api";
+import type { Game, SortKey, SortOrder } from "@/features/games/types";
+import { listGamesPagedByPage } from "../features/games/api";
 
-export default function Library(){
-  const [params, setParams] = useSearchParams();
-  const page = Math.max(1, parseInt(params.get("page")||"1"));
-  const pageSize = 30;
-  const [busy, setBusy] = React.useState(false);
-  const [items, setItems] = React.useState<Game[]>([]);
-  const [total, setTotal] = React.useState(0);
-  const [drawer, setDrawer] = React.useState(false);
+export default function Library() {
+  const [items, setItems] = useState<Game[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(30);
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState<SortKey>("added_at");
+  const [order, setOrder] = useState<SortOrder>("desc");
+  const [loading, setLoading] = useState(false);
 
-  const filters: GameFilters = {
-    q: params.get("q") || undefined,
-    platform: params.get("platform") || undefined,
-    status: params.get("status") || undefined,
-    sort: (params.get("sort") as any) || "added",
-  };
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await listGamesPagedByPage(page, limit, sort, order, q);
+        if (!alive) return;
+        setItems(res.items);
+        setTotal(res.total);
+      } catch (err) {
+        console.error("Falha a carregar jogos", err);
+        setItems([]);
+        setTotal(0);
+      } finally {
+        setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [page, limit, q, sort, order]);
 
-  const load = React.useCallback(async()=>{
-    setBusy(true);
-    try{
-      const data = await listGamesPagedByPage(page, pageSize, filters);
-      setItems(data.items || []);
-      setTotal(data.total || 0);
-    }finally{
-      setBusy(false);
-    }
-  }, [page, filters.q, filters.platform, filters.status, filters.sort]);
-
-  React.useEffect(()=>{ load(); }, [load]);
-
-  const applyFilters = (next: GameFilters)=>{
-    const p = new URLSearchParams(params);
-    next.q ? p.set("q", next.q) : p.delete("q");
-    next.platform ? p.set("platform", next.platform) : p.delete("platform");
-    next.status ? p.set("status", next.status) : p.delete("status");
-    next.sort ? p.set("sort", next.sort) : p.delete("sort");
-    p.set("page","1");
-    setParams(p, { replace:true });
-    setDrawer(false);
-  };
-
-  const clearFilters = ()=>{
-    const p = new URLSearchParams();
-    p.set("page","1");
-    setParams(p, { replace:true });
-  };
-
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const pages = useMemo(() => Math.max(1, Math.ceil(total/limit)), [total, limit]);
 
   return (
-    <div className="page library">
-      <div className="toolbar">
-        <div className="left">
-          <button className="btn" onClick={()=> setDrawer(true)}>Filtros</button>
-        </div>
-        <div className="right">
-          <Link className="btn primary" to="/add">Adicionar</Link>
+    <div style={{ padding: "16px" }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
+        <input
+          placeholder="Pesquisar..."
+          value={q}
+          onChange={(e)=>{ setPage(1); setQ(e.target.value);}}
+          style={{ padding: "8px 12px", borderRadius: 8, background: "#121a21", color: "#e6edf3", border: "1px solid #28313a", width: 320 }}
+        />
+        <select value={sort} onChange={(e)=>{ setPage(1); setSort(e.target.value as SortKey);}}>
+          <option value="added_at">Adicionado</option>
+          <option value="name">Nome</option>
+          <option value="platform">Consola</option>
+        </select>
+        <select value={order} onChange={(e)=>{ setPage(1); setOrder(e.target.value as SortOrder);}}>
+          <option value="desc">Desc</option>
+          <option value="asc">Asc</option>
+        </select>
+        <div style={{ marginLeft: "auto" }}>
+          <span style={{ opacity: 0.8 }}>{total} itens • página {page} de {pages}</span>
         </div>
       </div>
 
-      {busy ? <div className="panel">A carregar…</div> : (
-        <div className="grid">
-          {items.map(g=> (
-            <Link key={g.id || g.slug || g.title} to={`/game/${g.id}`} className="card">
-              {g.cover_url ? <img alt={g.title} src={g.cover_url} /> : <div className="ph" />}
-              <div className="t">{g.title}</div>
-              <div className="s">{g.platform || "—"}</div>
-            </Link>
-          ))}
-          {items.length===0 && <div className="panel">Sem resultados.</div>}
-        </div>
-      )}
+      {loading && <div>Carregar…</div>}
 
-      <div className="pager">
-        <button className="btn" disabled={page<=1} onClick={()=> setParams(prev=> { const p = new URLSearchParams(prev); p.set("page", String(page-1)); return p;})}>Anterior</button>
-        <div className="info">{page} / {totalPages}</div>
-        <button className="btn" disabled={page>=totalPages} onClick={()=> setParams(prev=> { const p = new URLSearchParams(prev); p.set("page", String(page+1)); return p;})}>Próxima</button>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
+        {items.map((g)=> (
+          <div key={String(g.id)} style={{ background:"#11161d", border:"1px solid #26303a", borderRadius:10, overflow:"hidden" }}>
+            {g.cover ? <img src={g.cover} alt={g.name} style={{ width:"100%", height:220, objectFit:"cover" }}/> : <div style={{height:220, background:"#081018"}}/>}
+            <div style={{ padding: 12 }}>
+              <div style={{ fontWeight:600, marginBottom:6 }}>{g.name}</div>
+              <div style={{ opacity:0.7, fontSize:12 }}>{g.platform ?? "—"} {g.year ? ` • ${g.year}`:""}</div>
+            </div>
+          </div>
+        ))}
       </div>
 
-      <FilterDrawer open={drawer} value={filters} onApply={applyFilters} onClear={clearFilters} onClose={()=> setDrawer(false)} />
-
-      <style>{`
-        .page.library{ padding:16px; color:#e5e7eb;}
-        .toolbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
-        .btn{ padding:8px 12px; background:#0b0d11; color:#e5e7eb; border:1px solid #1f2430; border-radius:8px; cursor:pointer;}
-        .btn.primary{ background:#3b82f6; color:#fff; border-color:#3b82f6;}
-        .grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(160px,1fr)); gap:12px;}
-        .card{ display:block; background:#0f1115; border:1px solid #1f2430; border-radius:12px; padding:10px; text-decoration:none; color:inherit;}
-        .card img,.card .ph{ width:100%; aspect-ratio:16/9; object-fit:cover; background:#131722; border-radius:8px; border:1px solid #1a2030;}
-        .t{ margin-top:8px; font-weight:600; font-size:14px;}
-        .s{ color:#9aa4b2; font-size:12px;}
-        .panel{ background:#0f1115; border:1px solid #1f2430; border-radius:12px; padding:14px;}
-        .pager{ position:fixed; right:16px; bottom:16px; display:flex; gap:10px; align-items:center; background:#0f1115; border:1px solid #1f2430; padding:8px 10px; border-radius:12px;}
-        .info{ color:#9aa4b2; font-size:12px;}
-      `}</style>
+      <div style={{ display:"flex", justifyContent:"flex-end", marginTop: 16, gap: 8 }}>
+        <button disabled={page<=1} onClick={()=>setPage(p=>Math.max(1, p-1))}>◀ Anterior</button>
+        <button disabled={page>=pages} onClick={()=>setPage(p=>Math.min(pages, p+1))}>Próxima ▶</button>
+      </div>
     </div>
   );
 }

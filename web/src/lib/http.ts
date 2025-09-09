@@ -1,39 +1,27 @@
-import axios, { AxiosInstance } from "axios";
+import axios from "axios";
 
-const BASE_URL = (import.meta as any).env?.VITE_API_URL || (window as any).__API_URL__ || "http://127.0.0.1:8000";
+export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
 
-export const api: AxiosInstance = axios.create({
-  baseURL: BASE_URL,
-  timeout: 20000,
+export const api = axios.create({
+  baseURL: API_BASE,
+  withCredentials: false,
 });
 
-api.interceptors.response.use(
-  r => r,
-  err => {
-    // normaliza mensagens offline/network
-    if (err?.code === "ERR_NETWORK") {
-      err.message = "offline";
-    }
-    return Promise.reject(err);
-  }
-);
-
-export async function get<T=any>(url:string, params?:any): Promise<T> {
+export async function apiGet<T = any>(url: string, params?: any): Promise<T> {
   const r = await api.get(url, { params });
-  return r.data as T;
+  return r.data;
 }
-export async function post<T=any>(url:string, data?:any): Promise<T> {
+export async function apiPost<T = any>(url: string, data?: any): Promise<T> {
   const r = await api.post(url, data);
-  return r.data as T;
+  return r.data;
 }
-export async function put<T=any>(url:string, data?:any): Promise<T> {
+export async function apiPut<T = any>(url: string, data?: any): Promise<T> {
   const r = await api.put(url, data);
-  return r.data as T;
+  return r.data;
 }
-export async function del<T=any>(url:string): Promise<T> {
+export async function apiDel<T = any>(url: string): Promise<T> {
   const r = await api.delete(url);
-  return r.data as T;
+  return r.data;
 }
 
-// Backwards compat aliases
-export const apiGet = get;
+export default api;

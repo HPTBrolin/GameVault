@@ -1,63 +1,26 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# Routers opcionais - nem todos precisam existir no teu projeto
-from .routers import providers, releases
-try:
-    from .routers import games  # type: ignore
-except Exception:  # pragma: no cover
-    games = None
-try:
-    from .routers import stats  # type: ignore
-except Exception:  # pragma: no cover
-    stats = None
-try:
-    from .routers import settings as settings_router  # type: ignore
-except Exception:  # pragma: no cover
-    settings_router = None
-
-# Config
-try:
-    from .config import get_settings
-except Exception:
-    def get_settings():
-        class _S:  # defaults
-            CORS_ORIGINS = ["*"]
-        return _S()
-
 app = FastAPI(title="GameVault API")
 
-# CORS
-s = get_settings()
-origins = getattr(s, "CORS_ORIGINS", ["*"]) or ["*"]
+# --- CORS (dev-friendly, restrict in production) ---
+allow_all = os.getenv("CORS_ALLOW_ALL", "1") in ("1", "true", "True")
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:4173",
+    "http://192.168.1.73:5173",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"] if allow_all else origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# DB setup opcional
-try:
-    from .db import create_db_and_tables  # type: ignore
-
-    @app.on_event("startup")
-    def on_startup():
-        try:
-            create_db_and_tables()
-        except Exception:
-            # não bloquear o arranque por causa disto
-            pass
-except Exception:
-    pass
-
-# Mount routers
-if games:
-    app.include_router(games.router)  # type: ignore[attr-defined]
-app.include_router(providers.router)
-app.include_router(releases.router)
-if stats:
-    app.include_router(stats.router)  # type: ignore[attr-defined]
-if settings_router:
-    app.include_router(settings_router.router)  # type: ignore[attr-defined]
+# Routers imports must be BELOW app creation to ensure CORS is installed
+from .routers import games  # type: ignore
+app.include_router(games.router)
