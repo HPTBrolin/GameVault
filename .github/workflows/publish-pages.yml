@@ -1,8 +1,11 @@
-name: publish-pages-artifacts
+name: Publish GitHub Pages
+
 on:
+  workflow_dispatch:
   push:
     branches: [ main ]
-  workflow_dispatch:
+    paths:
+      - "web/**"
 
 permissions:
   contents: read
@@ -11,30 +14,40 @@ permissions:
 
 concurrency:
   group: "pages"
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Build public artifacts
-        run: |
-          mkdir -p public/artifacts
-          zip -r public/artifacts/gamevault-web.zip web             -x "web/node_modules/*" "web/dist/*" "web/.vite/*" "web/coverage/*"                "web/.DS_Store" "web/*.log" "web/.idea/*" "web/.vscode/*"
-          zip -r public/artifacts/gamevault-api.zip api             -x "api/.venv/*" "api/__pycache__/*" "api/*.db" "api/*.sqlite"                "api/.mypy_cache/*" "api/.pytest_cache/*" "api/.idea/*" "api/.vscode/*"
-          zip -r public/artifacts/gamevault-src.zip web api             -x "web/node_modules/*" "web/dist/*" "web/.vite/*"                "api/.venv/*" "api/__pycache__/*" "api/*.db" "api/*.sqlite"                "*/.DS_Store" "*/.idea/*" "*/.vscode/*"
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install deps
+        working-directory: web
+        run: npm ci
+
+      - name: Build
+        working-directory: web
+        run: npm run build
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: public
+          path: web/dist
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

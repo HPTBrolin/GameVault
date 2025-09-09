@@ -1,38 +1,37 @@
-name: Publish ZIPs
+name: Build ZIP artifacts
 
 on:
-  push:
-    branches: [ "main" ]
   workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - ".github/**"
+
+permissions:
+  contents: write   # para criar releases
 
 jobs:
-  build-and-release:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare scripts
-        run: |
-          chmod +x ./scripts/publish-zips.sh
+      - name: Make script executable
+        run: chmod +x scripts/publish-zips.sh
 
-      - name: Build ZIP artifacts
-        run: ./scripts/publish-zips.sh ${{ github.repository_owner }} ${{ github.event.repository.name }} latest .
-        shell: bash
+      - name: Build ZIPs
+        run: ./scripts/publish-zips.sh
 
-      - name: Upload to GitHub Release (latest)
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: latest
-          files: artifacts/*.zip
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload workflow run artifacts
+      - name: Upload artifacts to run (debug/backup)
         uses: actions/upload-artifact@v4
         with:
           name: gamevault-zips
           path: artifacts/*.zip
+
+      # Publica em "Release" apenas quando fizeres tag (v1.2.3) – opcional
+      - name: Create GitHub Release with ZIPs
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.zip
