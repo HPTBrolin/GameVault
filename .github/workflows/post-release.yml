@@ -1,0 +1,24 @@
+name: post-release
+
+on:
+  release:
+    types: [published]   # corre quando a release é criada/publicada
+  repository_dispatch:
+    types: [zips_published]  # fallback quando disparares do script
+
+jobs:
+  log-info:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print event info
+        run: |
+          echo "event_name: ${{ github.event_name }}"
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "release.tag:   ${{ github.event.release.tag_name }}"
+            echo "release.url:   ${{ github.event.release.html_url }}"
+          else
+            echo "payload.tag:   ${{ github.event.client_payload.tag }}"
+            echo "payload.url:   ${{ github.event.client_payload.url }}"
+          fi
+
+  # Aqui podes encadear o que quiseres (ex.: publicar no Pages, notificar, etc.)

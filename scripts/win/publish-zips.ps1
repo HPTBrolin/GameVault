@@ -1,131 +1,75 @@
 param(
-  [string]$Owner = "",
-  [string]$Repo = "",
-  [string]$Tag = "latest",
-  [string]$Root = ".",
-  [switch]$NoPublish
+  [Parameter(Mandatory=$true)] [string]$Owner,   # ex: hptbrolin
+  [Parameter(Mandatory=$true)] [string]$Repo,    # ex: gamevault
+  [string]$Tag,                                  # se omitir, gera vYYYYMMDD-HHmmss
+  [switch]$AlsoLatest                            # recria/atualiza uma release 'latest'
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
+$repoId = "$Owner/$Repo"
+$artDir = Join-Path $PSScriptRoot '..' '..' 'artifacts'
+$srcZip = Join-Path $artDir 'gamevault-src.zip'
+$webZip = Join-Path $artDir 'gamevault-web.zip'
+$apiZip = Join-Path $artDir 'gamevault-api.zip'
 
-function Write-Info($msg){ Write-Host "[info] $msg" -ForegroundColor Cyan }
-function Write-Warn($msg){ Write-Host "[warn] $msg" -ForegroundColor Yellow }
-function Write-Err($msg){ Write-Host "[err ] $msg" -ForegroundColor Red }
-
-function Read-ZipIgnore($rootPath){
-  $file = Join-Path $rootPath ".zipignore"
-  $list = @()
-  if(Test-Path $file){
-    Get-Content $file | ForEach-Object {
-      $line = $_.Trim()
-      if($line -and -not $line.StartsWith("#")){
-        $list += $line.Replace("\","/")
-      }
-    }
-  }
-  return $list
+if (-not (Test-Path $srcZip) -or -not (Test-Path $webZip) -or -not (Test-Path $apiZip)) {
+  throw "Falta pelo menos um ZIP em $artDir. Gera-os primeiro."
 }
 
-function Should-Exclude($relPath, $patterns){
-  $p = $relPath.Replace("\","/").ToLower()
-  foreach($pat in $patterns){
-    $pat2 = $pat.Replace("\","/").ToLower()
-    if($pat2.EndsWith("/")){
-      if($p.StartsWith($pat2.TrimEnd("/"))){ return $true }
-    } else {
-      # wildcard-like
-      $wild = $pat2
-      if($wild.StartsWith("/")){ $wild = $wild.TrimStart("/") }
-      if($p -like $wild){ return $true }
-      # also match "contains"
-      if($p.Contains($wild)){ return $true }
-    }
-  }
-  return $false
+if (-not $Tag) { $Tag = 'v' + (Get-Date -Format 'yyyyMMdd-HHmmss') }
+
+Write-Host "[info] Repositório alvo: $repoId"
+Write-Host "[info] Tag/Release:    $Tag"
+
+# Garante que o gh está autenticado
+try { gh auth status -h github.com | Out-Null } catch {
+  throw "gh CLI não está autenticado. Corre 'gh auth login -h github.com -s repo' ou define GH_TOKEN."
 }
 
-function Collect-Files($base, $rootPath, $patterns, $prefixFilter){
-  Push-Location $rootPath
-  try{
-    $files = Get-ChildItem -Recurse -File | ForEach-Object { $_.FullName }
-    $result = @()
-    foreach($f in $files){
-      $rel = Resolve-Path -LiteralPath $f -Relative
-      $rel = $rel -replace '^[.][/\\]', ''
-      $rel = $rel.Replace("\","/")
-      if($prefixFilter){
-        if(-not $rel.StartsWith($prefixFilter)){ continue }
-      }
-      if(Should-Exclude $rel $patterns){ continue }
-      # also skip artifacts and .git always
-      if($rel.StartsWith(".git/")){ continue }
-      if($rel.StartsWith("artifacts/")){ continue }
-      $result += $rel
-    }
-    return $result
-  } finally {
-    Pop-Location
-  }
-}
-
-function New-Zip($zipPath, $rootPath, $files){
-  if(Test-Path $zipPath){ Remove-Item $zipPath -Force }
-  Push-Location $rootPath
-  try{
-    if($files.Count -eq 0){
-      Write-Warn "Nada para zipar para $zipPath"
-      return
-    }
-    Compress-Archive -Path $files -DestinationPath $zipPath -Force -CompressionLevel Optimal | Out-Null
-    Write-Info "Criado $zipPath"
-  } finally {
-    Pop-Location
-  }
-}
-
-# Main
-$Root = Resolve-Path $Root
-$artifacts = Join-Path $Root "artifacts"
-if(-not (Test-Path $artifacts)){ New-Item -ItemType Directory -Path $artifacts | Out-Null }
-
-$patterns = Read-ZipIgnore $Root
-
-# SRC ZIP
-$srcFiles = Collect-Files -base $Root -rootPath $Root -patterns $patterns -prefixFilter $null
-New-Zip (Join-Path $artifacts "gamevault-src.zip") $Root $srcFiles
-
-# WEB ZIP
-$webFiles = Collect-Files -base $Root -rootPath $Root -patterns $patterns -prefixFilter "web/"
-New-Zip (Join-Path $artifacts "gamevault-web.zip") $Root $webFiles
-
-# API ZIP
-$apiFiles = Collect-Files -base $Root -rootPath $Root -patterns $patterns -prefixFilter "api/"
-New-Zip (Join-Path $artifacts "gamevault-api.zip") $Root $apiFiles
-
-if($NoPublish){
-  Write-Info "Feito. Artefactos em: $(Join-Path $Root 'artifacts')"
-  exit 0
-}
-
-if(-not $Owner -or -not $Repo){
-  Write-Warn "Sem -Owner/-Repo -> não publico. Use -NoPublish para suprimir este aviso."
-  exit 0
-}
-
-# GH publish
-$gh = Get-Command gh -ErrorAction SilentlyContinue
-if(-not $gh){
-  Write-Warn "'gh' (GitHub CLI) não encontrado. Instala: https://cli.github.com/"
-  Write-Warn "Ou define GH_TOKEN e tenta novamente."
-  exit 0
-}
-
+# Cria a release (cria a tag em HEAD). Se já existir, falha => editamos em vez disso.
+$created = $true
 try {
-  gh release view $Tag --repo "$Owner/$Repo" | Out-Null
-  Write-Info "Release '$Tag' existe. Vou enviar assets com --clobber."
-  gh release upload $Tag "$artifacts\gamevault-*.zip" --repo "$Owner/$Repo" --clobber
+  gh release create $Tag -R $repoId `
+    --title "GameVault $Tag" `
+    --notes "Build automatizado $Tag" `
+    $srcZip $webZip $apiZip | Out-Null
+  Write-Host "[ok] Release criada: https://github.com/$repoId/releases/tag/$Tag"
 } catch {
-  Write-Info "Release '$Tag' não existe. Vou criar e publicar os zips."
-  gh release create $Tag "$artifacts\gamevault-*.zip" --repo "$Owner/$Repo" --title "$Tag" --notes "Automated ZIPs" --latest
+  $created = $false
 }
-Write-Info "Concluído."
+
+if (-not $created) {
+  # Se já havia release com esta tag, apenas atualiza (clobber)
+  Write-Host "[info] Release '$Tag' já existia. A atualizar assets (clobber)…"
+  gh release upload $Tag -R $repoId --clobber $srcZip $webZip $apiZip | Out-Null
+  Write-Host "[ok] Assets atualizados para '$Tag'."
+}
+
+if ($AlsoLatest) {
+  # Mantém um "apontador" latest: recria sempre (simples e previsível)
+  Write-Host "[info] (latest) a recriar release 'latest'…"
+  gh release delete latest -R $repoId -y 2>$null | Out-Null
+  gh release create latest -R $repoId `
+    --title "Latest" `
+    --notes "Aponta para $Tag" `
+    $srcZip $webZip $apiZip | Out-Null
+  Write-Host "[ok] (latest) Release 'latest' atualizada."
+}
+
+# Depois de criares a release/tag com 'gh release create ...'
+# $Owner, $Repo e $tag já definidos no script
+
+$payload = @{
+  tag     = $tag
+  release = $tag
+  url     = "https://github.com/$Owner/$Repo/releases/tag/$tag"
+} | ConvertTo-Json -Compress
+
+Write-Host "[info] A disparar repository_dispatch (zips_published)..." -ForegroundColor Cyan
+gh api repos/$Owner/$Repo/dispatches `
+  -f event_type='zips_published' `
+  -f client_payload="$payload" | Out-Null
+Write-Host "[info] repository_dispatch enviado." -ForegroundColor Green
+
+
+
