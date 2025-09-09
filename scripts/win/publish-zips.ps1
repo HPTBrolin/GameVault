@@ -55,21 +55,3 @@ if ($AlsoLatest) {
     $srcZip $webZip $apiZip | Out-Null
   Write-Host "[ok] (latest) Release 'latest' atualizada."
 }
-
-# Depois de criares a release/tag com 'gh release create ...'
-# $Owner, $Repo e $tag já definidos no script
-
-$payload = @{
-  tag     = $tag
-  release = $tag
-  url     = "https://github.com/$Owner/$Repo/releases/tag/$tag"
-} | ConvertTo-Json -Compress
-
-Write-Host "[info] A disparar repository_dispatch (zips_published)..." -ForegroundColor Cyan
-gh api repos/$Owner/$Repo/dispatches `
-  -f event_type='zips_published' `
-  -f client_payload="$payload" | Out-Null
-Write-Host "[info] repository_dispatch enviado." -ForegroundColor Green
-
-
-
