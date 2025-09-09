@@ -1,0 +1,24 @@
+# ---- generic ----
+.git/
+artifacts/
+*.log
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---- web (frontend) ----
+web/node_modules/
+web/dist/
+web/.vite/
+web/.cache/
+web/.eslintcache
+
+# ---- api (backend) ----
+api/.venv/
+api/__pycache__/
+api/.mypy_cache/
+api/.pytest_cache/
+api/games.db
+api/*.sqlite
+api/*.db
