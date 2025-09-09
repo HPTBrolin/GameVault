@@ -1,29 +1,18 @@
-name: post-release
+name: Post Release (zips)
 
 on:
   release:
-    types: [published]          # arranca quando a release é publicada
+    types: [published]
   repository_dispatch:
-    types: [zips_published]     # fallback disparado pelo script local
-
-permissions:
-  contents: read
+    types: [zips_published]
 
 jobs:
-  post_release:
+  post:
     runs-on: ubuntu-latest
     steps:
-      - name: Mostrar contexto do evento
+      - name: Log context
         run: |
-          echo "event_name: ${{ github.event_name }}"
-          if [ "${{ github.event_name }}" = "release" ]; then
-            echo "release.tag:   ${{ github.event.release.tag_name }}"
-            echo "release.url:   ${{ github.event.release.html_url }}"
-          else
-            echo "payload.tag:    ${{ github.event.client_payload.tag }}"
-            echo "payload.url:    ${{ github.event.client_payload.url }}"
-          fi
-
-      # 👉 Adiciona aqui os passos que quiseres (builds extra, deploy, notificações, etc.)
-      # - name: Exemplo
-      #   run: echo "Fariam-se tarefas pós-release aqui."
+          echo "event: ${{ github.event_name }}"
+          echo "release.html_url: ${{ github.event.release.html_url }}"
+          echo "client_payload.url: ${{ github.event.client_payload.url }}"
+          echo "client_payload.tag: ${{ github.event.client_payload.tag }}"

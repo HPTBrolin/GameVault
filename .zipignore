@@ -1,4 +1,6 @@
-# ---- generic ----
+# ----------------------
+# Global ignores
+# ----------------------
 .git/
 artifacts/
 *.log
@@ -7,18 +9,36 @@ artifacts/
 .DS_Store
 Thumbs.db
 
-# ---- web (frontend) ----
+# ----------------------
+# Web app (Vite/React)
+# ----------------------
 web/node_modules/
 web/dist/
+web/build/
 web/.vite/
 web/.cache/
+web/.parcel-cache/
 web/.eslintcache
 
-# ---- api (backend) ----
+# ----------------------
+# API (Python/FastAPI)
+# ----------------------
 api/.venv/
+api/venv/
 api/__pycache__/
-api/.mypy_cache/
 api/.pytest_cache/
+api/.mypy_cache/
+api/.ruff_cache/
+api/.coverage
+api/coverage/
+api/.env*
 api/games.db
-api/*.sqlite
-api/*.db
+
+# ----------------------
+# Root-level env & caches
+# ----------------------
+.env*
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
